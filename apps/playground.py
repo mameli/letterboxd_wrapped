@@ -29,7 +29,7 @@ def _():
 
         diary_path = f"{extract_to_path}/diary.csv"
     else:
-        diary_path = f"https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/extracted_files/diary.csv"
+        diary_path = f"https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/extracted_files/diary.csv"
     return (
         Counter,
         datetime,
@@ -74,7 +74,7 @@ def _(is_local):
     if is_local:
         CACHE_FILE = "/Users/filippomameli/Projects/letterboxd_wrapped/movie_cache.json"
     else:
-        CACHE_FILE = "https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/movie_cache.json"
+        CACHE_FILE = "https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/movie_cache.json"
     return (CACHE_FILE,)
 
 
