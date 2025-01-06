@@ -17,12 +17,12 @@ def _():
 
     load_dotenv()
 
-    is_local = True
+    is_local = False
 
     if is_local:
-        zip_file_path = "./export/Account Settings Jan 6 2025.zip"
+        zip_file_path = "/Users/filippomameli/Projects/letterboxd_wrapped/export/Account Settings Jan 6 2025.zip"
 
-        extract_to_path = "./extracted_files"
+        extract_to_path = "/Users/filippomameli/Projects/letterboxd_wrapped/extracted_files"
 
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to_path)
@@ -72,18 +72,21 @@ def _(df, pl):
 @app.cell
 def _(is_local):
     if is_local:
-        CACHE_FILE = "movie_cache.json"
+        CACHE_FILE = "/Users/filippomameli/Projects/letterboxd_wrapped/movie_cache.json"
     else:
-        CACHE_FILE = f"https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/movie_cache.json"
+        CACHE_FILE = "https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/movie_cache.json"
     return (CACHE_FILE,)
 
 
 @app.cell
-def _(CACHE_FILE, json, os):
+def _(CACHE_FILE, is_local, json, os, requests):
     def load_cache():
-        if os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, 'r') as f:
-                return json.load(f)
+        if is_local:
+            if os.path.exists(CACHE_FILE):
+                with open(CACHE_FILE, 'r') as f:
+                    return json.load(f)
+        else:
+            return requests.get(CACHE_FILE).json()
         return {}
 
     def save_cache(cache):
