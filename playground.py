@@ -17,16 +17,25 @@ def _():
 
     load_dotenv()
 
-    zip_file_path = "./export/Account Settings Dec 18 2024.zip"
+    is_local = True
 
-    extract_to_path = "./extracted_files"
+    if is_local:
+        zip_file_path = "./export/Account Settings Jan 6 2025.zip"
 
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_to_path)
+        extract_to_path = "./extracted_files"
+        
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_to_path)
+            
+        diary_path = f"{extract_to_path}/diary.csv"
+    else:
+        diary_path = f"github_path/diary.csv"
     return (
         Counter,
         datetime,
+        diary_path,
         extract_to_path,
+        is_local,
         json,
         load_dotenv,
         os,
@@ -44,7 +53,7 @@ def _(extract_to_path, pl):
 
     df = (
         pl.read_csv(f"{extract_to_path}/diary.csv")
-        .filter(pl.col("Watched Date") > pl.lit("2024-01-01"))
+        .filter((pl.col("Watched Date") > pl.lit("2024-01-01")) & (pl.col("Watched Date") < pl.lit("2025-01-01")))
     )
     return (df,)
 
@@ -117,11 +126,13 @@ def _(os):
 
 @app.cell
 def _(get_movie_data):
-    def get_metatadat(diary_df, api_key):
+    def get_metatadata(diary_df, api_key):
         for t, y in diary_df[['Name', 'Year']].rows():
             print(f"Getting data for {t} ({y})")
             get_movie_data(t, y, api_key)
-    return (get_metatadat,)
+
+    # get_metatadata(df_fmt, API_KEY)
+    return (get_metatadata,)
 
 
 @app.cell
@@ -449,7 +460,6 @@ def _(df_full, get_top_from_list, mo, top_boxoffice, top_rated):
         - I watched **{top_rated['count'].item()}** **{top_rated['Rated'].item()}** rated movies
         """
     )
-
     return
 
 

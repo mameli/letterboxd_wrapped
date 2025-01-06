@@ -10,7 +10,8 @@ wheels/
 .venv
 
 /export
-/extracted_files
+/extracted_files/*
+!/extracted_files/diary.csv
 
 movie_cache.json
 .DS_Store
