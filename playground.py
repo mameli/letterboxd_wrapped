@@ -23,13 +23,13 @@ def _():
         zip_file_path = "./export/Account Settings Jan 6 2025.zip"
 
         extract_to_path = "./extracted_files"
-        
+
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to_path)
-            
+
         diary_path = f"{extract_to_path}/diary.csv"
     else:
-        diary_path = f"github_path/diary.csv"
+        diary_path = f"https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/extracted_files/diary.csv"
     return (
         Counter,
         datetime,
@@ -48,11 +48,11 @@ def _():
 
 
 @app.cell
-def _(extract_to_path, pl):
+def _(diary_path, pl):
     # read csv from extracted files diary with polars
 
     df = (
-        pl.read_csv(f"{extract_to_path}/diary.csv")
+        pl.read_csv(diary_path)
         .filter((pl.col("Watched Date") > pl.lit("2024-01-01")) & (pl.col("Watched Date") < pl.lit("2025-01-01")))
     )
     return (df,)
@@ -70,8 +70,11 @@ def _(df, pl):
 
 
 @app.cell
-def _():
-    CACHE_FILE = "movie_cache.json"
+def _(is_local):
+    if is_local:
+        CACHE_FILE = "movie_cache.json"
+    else:
+        CACHE_FILE = f"https://github.com/mameli/letterboxd_wrapped/raw/refs/heads/main/movie_cache.json"
     return (CACHE_FILE,)
 
 
@@ -372,7 +375,7 @@ def _(mo, top_3_longest_movies_fmt, total_runtime):
             Identifies the longest movies watched by sorting the dataset by runtime in descending order. This highlights which movies required the most time to watch.
 
             **Top 3**: 
-                {top_3_longest_movies_fmt}
+                {mo.as_html(top_3_longest_movies_fmt)}
         """
     )
     return
@@ -465,7 +468,7 @@ def _(df_full, get_top_from_list, mo, top_boxoffice, top_rated):
 
 @app.cell
 def _():
-    ''# get_top_from_list(df_full, 'Genre', 10)
+    # get_top_from_list(df_full, 'Genre', 10)
     # get_top_from_list(df_full, 'Actors', 10)
     # get_top_from_list(df_full, 'Writer', 10)
     # get_top_from_list(df_full, 'Country', 10)
