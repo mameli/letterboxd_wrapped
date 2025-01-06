@@ -243,6 +243,27 @@ def _(df_fmt, load_cache, pl):
         )
         .str.to_decimal().cast(pl.Float64)
         .alias("imdbRating"),
+        pl.struct(["title_year"])
+        .map_batches(
+            lambda movie: extract_metadata(
+                cache, movie.struct.field("title_year"), "Rated"
+            )
+        )
+        .alias("Rated"),
+        pl.struct(["title_year"])
+        .map_batches(
+            lambda movie: extract_metadata(
+                cache, movie.struct.field("title_year"), "BoxOffice"
+            )
+        )
+        .alias("BoxOffice"),
+        pl.struct(["title_year"])
+        .map_batches(
+            lambda movie: extract_metadata(
+                cache, movie.struct.field("title_year"), "Poster"
+            )
+        )
+        .alias("Poster"),
     )
 
     df_full = df_full.with_columns(
@@ -258,6 +279,10 @@ def _(df_fmt, load_cache, pl):
         (pl.col("Rating") - pl.col("imdbRating") * 5 / 10)
         .abs()
         .alias("Rating_Difference_IMDB"),
+        pl.col("BoxOffice")
+        .str.replace_all(r"[\$,]", "")
+        .str.to_integer(strict=False)
+        .alias("BoxOffice"),
     )
 
     df_full
@@ -275,8 +300,7 @@ def _(Counter):
 
         item_counts = Counter(items)
 
-        for item, count in item_counts.most_common(top):
-            print(f"{item}: {count}")
+        return item_counts.most_common(top)
     return (get_top_from_list,)
 
 
@@ -292,13 +316,13 @@ def _(mo):
 
 
 @app.cell
-def _(mo, number_unique_directors, total_movies_watched):
+def _(df_full, mo, number_unique_directors, pl, total_movies_watched):
     mo.md(
         f"""
         ### **General Movie Statistics**
         - **Total Movies Watched**: The total number of movies logged -> **{total_movies_watched}**
         - **Unique Directors**: The number of unique directors in the dataset -> **{number_unique_directors}**
-        - **Top Directors**: The directors with the most movies in the dataset.
+        - **Top Directors**: The directors with the most movies in the dataset. -> **{df_full.group_by('Director').agg(pl.col('Name').count().alias('count')).sort('count', descending=True).select('Director').head(1).item()}**
         """
     )
     return
@@ -335,7 +359,7 @@ def _(mo, top_3_longest_movies_fmt, total_runtime):
 
         2. **Longest Movies**  
             Identifies the longest movies watched by sorting the dataset by runtime in descending order. This highlights which movies required the most time to watch.
-            
+
             **Top 3**: 
                 {top_3_longest_movies_fmt}
         """
@@ -351,7 +375,7 @@ def _(df_full):
 
 @app.cell
 def _(df_full):
-    top_3_longest_movies = df_full.select('Name', 'Runtime_normalized').drop_nulls().sort('Runtime_normalized', descending=True).select('Name').head(3).to_series().to_list()
+    top_3_longest_movies = df_full.select('Name', 'Runtime_normalized', 'Poster').drop_nulls().sort('Runtime_normalized', descending=True).select('Name', 'Poster').head(3).to_dicts()
     return (top_3_longest_movies,)
 
 
@@ -359,17 +383,12 @@ def _(df_full):
 def _(top_3_longest_movies):
     top_3_longest_movies_fmt = ""
     for m in top_3_longest_movies:
+        print()
         top_3_longest_movies_fmt += f"""
-        - {m}
-        
+        - {m['Name']}
+        ![{m['Name']} poster]({m['Poster']})
         """
     return m, top_3_longest_movies_fmt
-
-
-@app.cell
-def _(df_full):
-    df_full.select('Name', 'Runtime_normalized').drop_nulls().sort('Runtime_normalized', descending=True)
-    return
 
 
 @app.cell
@@ -402,56 +421,57 @@ def _(df_full, pl):
 
 
 @app.cell
-def _(mo):
+def _(df_full, pl):
+    top_rated = df_full.group_by('Rated').agg(pl.col('Name').count().alias('count')).sort('count', descending=True).head(1).to_dict()
+    return (top_rated,)
+
+
+@app.cell
+def _(df_full, pl):
+    top_boxoffice = df_full.select('Name','BoxOffice', 'Poster').drop_nulls().sort(pl.col('BoxOffice'), descending=True).select('Name', 'Poster').head(1).to_dicts()[0]
+    return (top_boxoffice,)
+
+
+@app.cell
+def _(df_full, get_top_from_list, mo, top_boxoffice, top_rated):
     mo.md(
-        """
-        ''### **Top Categories**
-        - **Top Genres**: The most frequently watched genres.  
-        - **Top Actors**: The actors appearing most often in the movies.  
-        - **Top Writers**: The most recurring writers.  
-        - **Top Countries and Languages**: The most common production countries and spoken languages.
+        f"""
+        ### **Top Categories**
+        - **Top Genres**: The most frequently watched genres.  **{get_top_from_list(df_full, 'Genre', 1)[0][0]}**
+        - **Top Actors**: The actors appearing most often in the movies. **{get_top_from_list(df_full, 'Actors', 1)[0][0]}**
+        - **Top Writers**: The most recurring writers.  **{get_top_from_list(df_full, 'Writer', 1)[0][0]}**
+        - **Top Countries and Languages**: The most common production countries and spoken languages. **{get_top_from_list(df_full, 'Country', 1)[0][0]}** , **{get_top_from_list(df_full, 'Language', 1)[0][0]}**
+        - **BoxOffice sensation**: The highest-grossing movie I watched this year is **{top_boxoffice['Name']}**
+        ![{top_boxoffice['Name']} poster]({top_boxoffice['Poster']})
+
+        **Fun fact**: [The motion picture content rating system]('https://en.wikipedia.org/wiki/Motion_picture_content_rating_system#United_States') is really strict. Even Inside Out and Shrek are not rated “All ages admitted.”
+
+        - I watched **{top_rated['count'].item()}** **{top_rated['Rated'].item()}** rated movies
         """
     )
+
     return
 
 
 @app.cell
-def _(df_full, get_top_from_list):
-    get_top_from_list(df_full, 'Genre', 10)
+def _():
+    ''# get_top_from_list(df_full, 'Genre', 10)
+    # get_top_from_list(df_full, 'Actors', 10)
+    # get_top_from_list(df_full, 'Writer', 10)
+    # get_top_from_list(df_full, 'Country', 10)
+    # get_top_from_list(df_full, 'Language', 10)
     return
 
 
 @app.cell
-def _(df_full, get_top_from_list):
-    get_top_from_list(df_full, 'Actors', 10)
-    return
-
-
-@app.cell
-def _(df_full, get_top_from_list):
-    get_top_from_list(df_full, 'Writer', 10)
-    return
-
-
-@app.cell
-def _(df_full, get_top_from_list):
-    get_top_from_list(df_full, 'Country', 10)
-    return
-
-
-@app.cell
-def _(df_full, get_top_from_list):
-    get_top_from_list(df_full, 'Language', 10)
-    return
-
-
-@app.cell
-def _(mo):
+def _(mo, top_3_user_rating_fmt):
     mo.md(
-        """
+        f"""
         ### **Highest Rated Movies**
-        - **Top by Rating**: Movies sorted by user ratings.  
-        - **Top by Metascore**: Movies sorted by critical scores.
+        - **Top by Rating**: Movies sorted by user ratings.
+
+        **Top 3**: 
+        {top_3_user_rating_fmt}
         """
     )
     return
@@ -459,7 +479,25 @@ def _(mo):
 
 @app.cell
 def _(df_full):
-    df_full.select('Name', 'Rating').drop_nulls().sort('Rating', descending=True)
+    top_user_rating = df_full.select('Name', 'Rating', 'Poster').drop_nulls().sort('Rating', descending=True).head(3).to_dicts()
+    return (top_user_rating,)
+
+
+@app.cell
+def _(top_user_rating):
+    top_3_user_rating_fmt = ""
+    for r in top_user_rating:
+        print()
+        top_3_user_rating_fmt += f"""
+        - {r['Name']}
+        ![{r['Name']} poster]({r['Poster']})
+        """
+    return r, top_3_user_rating_fmt
+
+
+@app.cell
+def _(mo):
+    mo.md("""- **Top by Metascore**: Movies sorted by critical scores.""")
     return
 
 
@@ -474,8 +512,7 @@ def _(mo):
     mo.md(
         """
         ### **Interesting Comparisons**
-        - **Critics vs. Audience**: Identifies movies with the largest discrepancies between user ratings, Metascore, and IMDB ratings.  
-        - **Rating Consistency**: Highlights how user preferences align with audience or critic opinions.
+        - **Critics vs. Audience**: Identifies movies with the largest discrepancies between user ratings, Metascore, and IMDB ratings.
         """
     )
     return
@@ -494,8 +531,8 @@ def _(df_full):
 
 
 @app.cell
-def _(df_full, pl):
-    df_full.group_by('Year').agg(pl.col('Name').count().alias('count')).sort('count', descending=True)
+def _():
+    # df_full.group_by('Year').agg(pl.col('Name').count().alias('count')).sort('count', descending=True)
     return
 
 
@@ -503,6 +540,11 @@ def _(df_full, pl):
 def _():
     import marimo as mo
     return (mo,)
+
+
+@app.cell
+def _():
+    return
 
 
 if __name__ == "__main__":
