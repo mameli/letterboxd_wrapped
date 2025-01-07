@@ -9,6 +9,7 @@ def _():
     import zipfile
     import requests
     import os
+    import io
     import json
     import polars as pl
     from dotenv import load_dotenv
@@ -35,6 +36,7 @@ def _():
         datetime,
         diary_path,
         extract_to_path,
+        io,
         is_local,
         json,
         load_dotenv,
@@ -45,6 +47,33 @@ def _():
         zip_ref,
         zipfile,
     )
+
+
+@app.cell
+def _(mo):
+    file = mo.ui.file(kind="button")
+    file
+    return (file,)
+
+
+@app.cell
+def _(io, pl, zipfile):
+    def process_zip_and_load_csv(file_contents):
+        with zipfile.ZipFile(io.BytesIO(file_contents)) as zf:
+            if "diary.csv" in zf.namelist():
+                with zf.open("diary.csv") as csv_file:
+                    df = pl.read_csv(csv_file)
+                    return df
+            else:
+                raise FileNotFoundError("Il file 'diary.csv' non è presente nel file ZIP.")
+    return (process_zip_and_load_csv,)
+
+
+@app.cell
+def _(file, process_zip_and_load_csv):
+    if file.name():
+        process_zip_and_load_csv(file.contents())
+    return
 
 
 @app.cell
@@ -144,10 +173,16 @@ def _(get_movie_data):
 @app.cell
 def _(mo):
     mo.md(
-        r"""
+        f"""
         # **Movie Data Processing and Insights**
 
         This application processes movie diary data exported from **Letterboxd** and enriches it with detailed metadata to analyze and uncover interesting insights. The exported data serves as a starting point, containing a basic list of movies watched, and is transformed into a rich dataset with comprehensive information about genres, runtime, directors, writers, and more.
+
+        {mo.image(         
+            src="https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/imgs/letterboxd.png",
+            alt="Letterboxd logo",
+            caption="Letterboxd logo",
+        )}
 
         ---
 
