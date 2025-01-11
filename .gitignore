@@ -13,6 +13,8 @@ wheels/
 /extracted_files/*
 !/extracted_files/diary.csv
 
+/output_dir
+
 # movie_cache.json
 .DS_Store
 .env

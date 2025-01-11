@@ -360,8 +360,6 @@ def _(df_fmt, load_cache, pl):
     df_full = df_full.with_columns(
         (pl.col("Rating") / pl.col("BoxOffice")).alias("RatingPerEarning"),
     )
-
-
     return cache, df_full, extract_metadata
 
 
@@ -417,43 +415,41 @@ def _(df_full, mo, number_unique_directors, pl, total_movies_watched):
 
 @app.cell
 def _(df_full, mo, pl, plt, sns):
-    sns.set(style="whitegrid", font="serif")
-
-    plt.figure(figsize=(10, 6))
-    sns.barplot(
-        data=df_full.group_by("Director")
-        .agg(pl.col("Name").count().alias("count"))
-        .sort("count", descending=True)
-        .head(12)
-        .to_pandas(),
-        y="Director",  # Horizontal orientation: Directors on the y-axis
-        x="count",  # Movie counts on the x-axis
-        hue="Director",
-        palette="pastel",  # Reverse Blues color palette
-    )
-
-
-    # Customize the plot
-    plt.title("Number of Movies by Director", fontsize=16)
-    plt.xlabel("Number of Movies", fontsize=12)
-    plt.ylabel(" ", fontsize=12)
-
-    # Set integer ticks for the x-axis
-    max_count = (
+    # Raggruppa i dati e aggrega
+    directors_data = (
         df_full.group_by("Director")
         .agg(pl.col("Name").count().alias("count"))
-        .to_pandas()["count"]
-        .max()
-    )
-    plt.xticks(
-        ticks=range(0, int(max_count) + 1), fontsize=12
+        .sort("count", descending=True)
+        .head(13)
     )
 
+    # Converte i dati in formato lista per Seaborn
+    directors = directors_data["Director"].to_list()
+    counts = directors_data["count"].to_list()
+
+    # Configura Seaborn e crea il grafico
+    sns.set(style="whitegrid", font="serif")
+    plt.figure(figsize=(10, 6))
+    sns.barplot(
+        x=counts,  # Numero di film (asse x)
+        y=directors,  # Direttori (asse y)
+        hue=directors,
+        palette="pastel",
+    )
+
+    # Personalizza il grafico
+    plt.title("Number of Movies by Director", fontsize=16)
+    plt.xlabel("Number of Movies", fontsize=12)
+    plt.ylabel("", fontsize=12)
+
+    # Configura i ticks sull'asse x
+    plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     plt.tight_layout()
 
+    # Mostra il grafico
     mo.center(plt.gca())
-    return (max_count,)
+    return counts, directors, directors_data
 
 
 @app.cell
@@ -759,32 +755,34 @@ def _(mo, plt, sns):
         # Set the style
         sns.set(style="whitegrid", font="serif")
 
-        # Create the barplot
-        plt.figure(figsize=(12, 6))
+        # Prepare the data
         plot_data = (
-            df
-            .select("Name", column_name)
+            df.select("Name", column_name)
             .drop_nulls()
             .sort(column_name, descending=True)
             .head(10)
-            .to_pandas()
         )
 
+        # Convert the data to lists for Seaborn
+        movie_titles = plot_data["Name"].to_list()
+        scores = plot_data[column_name].to_list()
+
+        # Create the barplot
+        plt.figure(figsize=(12, 6))
         barplot = sns.barplot(
-            data=plot_data,
-            x="Name",
-            y=column_name,
-            hue=column_name,
+            x=movie_titles,
+            y=scores,
+            hue=scores,
             palette="pastel",
             legend=False,
         )
 
         # Add values on top of the bars
-        for bar, score in zip(barplot.patches, plot_data[column_name].iloc[::-1]):
+        for bar, score in zip(barplot.patches, scores):
             barplot.text(
                 bar.get_x() + bar.get_width() / 2,  # Center text on the bar
                 bar.get_height() + .1,              # Place text slightly above the bar
-                f"{score}",                   # Text content (integer score)
+                f"{score}",                         # Text content (score)
                 ha="center", fontsize=10
             )
 
@@ -862,30 +860,29 @@ def _(mo, plt, sns):
         # Set the style
         sns.set(style="whitegrid", font="serif")
 
-        # Prepare the data
         plot_data = (
-            df.select("Name", rating_diff_col, "Rating", normalized_col)
+            df.select(["Name", rating_diff_col, "Rating", normalized_col])
             .drop_nulls()
             .sort(rating_diff_col, descending=True)
             .head(10)
-            .to_pandas()
         )
 
-        # Melt the data for side-by-side bar plotting
-        plot_data_melted = plot_data.melt(
-            id_vars=["Name"],
-            value_vars=["Rating", normalized_col],
-            var_name="Rating Type",
-            value_name="Score",
-        )
+        # Extract data into lists for plotting
+        names = plot_data["Name"].to_list()
+        ratings = plot_data["Rating"].to_list()
+        normalized_ratings = plot_data[normalized_col].to_list()
+
+        # Prepare data for side-by-side plotting
+        categories = ["Rating"] * len(ratings) + ["Critic Rating"] * len(normalized_ratings)
+        scores = ratings + normalized_ratings
+        movie_labels = names * 2  # Repeat names for both groups
 
         # Create the barplot
         plt.figure(figsize=(12, 6))
         barplot_difference = sns.barplot(
-            data=plot_data_melted,
-            x="Name",
-            y="Score",
-            hue="Rating Type",
+            x=movie_labels,
+            y=scores,
+            hue=categories,
             palette="coolwarm",
         )
 
@@ -899,6 +896,9 @@ def _(mo, plt, sns):
         plt.xticks(fontsize=12, rotation=80, weight="bold")
         plt.yticks(fontsize=12)
         plt.tick_params(labelsize=12)
+
+        # Display the plot
+        plt.tight_layout()
 
         # Display the plot
         return mo.center(plt.gca())
