@@ -21,24 +21,10 @@ def _():
 
     load_dotenv()
 
-    is_local = False
-
-    if is_local:
-        zip_file_path = "/Users/filippomameli/Projects/letterboxd_wrapped/export/Account Settings Jan 6 2025.zip"
-
-        extract_to_path = "/Users/filippomameli/Projects/letterboxd_wrapped/extracted_files"
-
-        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_to_path)
-
-        diary_path = f"{extract_to_path}/diary.csv"
-    else:
-        diary_path = f"https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/extracted_files/diary.csv"
+    is_local = True
     return (
         Counter,
         datetime,
-        diary_path,
-        extract_to_path,
         io,
         is_local,
         json,
@@ -48,20 +34,38 @@ def _():
         plt,
         requests,
         sns,
-        zip_file_path,
-        zip_ref,
         zipfile,
     )
 
 
 @app.cell
-def _(diary_path, pl):
-    # read csv from extracted files diary with polars
+def _(mo):
+    file = mo.ui.file(kind="button")
+    file
+    return (file,)
 
-    df = (
-        pl.read_csv(diary_path)
-        .filter((pl.col("Watched Date") > pl.lit("2024-01-01")) & (pl.col("Watched Date") < pl.lit("2025-01-01")))
-    )
+
+@app.cell
+def _(io, pl, zipfile):
+    def process_zip_and_load_csv(file_contents):
+        with zipfile.ZipFile(io.BytesIO(file_contents)) as zf:
+            if "diary.csv" in zf.namelist():
+                with zf.open("diary.csv") as csv_file:
+                    df = pl.read_csv(csv_file).filter((pl.col("Watched Date") > pl.lit("2024-01-01")) & (pl.col("Watched Date") < pl.lit("2025-01-01")))
+                    return df
+            else:
+                raise FileNotFoundError(
+                    "'diary.csv' not found"
+                )
+    return (process_zip_and_load_csv,)
+
+
+@app.cell
+def _(file, pl, process_zip_and_load_csv):
+    df = pl.DataFrame()
+
+    if file.name():
+        df = process_zip_and_load_csv(file.contents())
     return (df,)
 
 
@@ -360,8 +364,6 @@ def _(df_fmt, load_cache, pl):
     df_full = df_full.with_columns(
         (pl.col("Rating") / pl.col("BoxOffice")).alias("RatingPerEarning"),
     )
-
-
     return cache, df_full, extract_metadata
 
 
