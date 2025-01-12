@@ -45,7 +45,7 @@ def _():
         load_dotenv,
         os,
         pl,
-        plt,
+        px,
         requests,
         sns,
         zip_file_path,
@@ -414,8 +414,7 @@ def _(df_full, mo, number_unique_directors, pl, total_movies_watched):
 
 
 @app.cell
-def _(df_full, mo, pl):
-
+def _(df_full, mo, pl, px):
     directors_data = (
         df_full.group_by("Director")
         .agg(pl.col("Name").count().alias("count"))
@@ -449,7 +448,7 @@ def _(df_full, mo, pl):
     )
 
     mo.center(mo.ui.plotly(fig))
-    return counts, directors, directors_data, fig, px
+    return counts, directors, directors_data, fig
 
 
 @app.cell
@@ -570,29 +569,58 @@ def _(df_full, pl):
 
 
 @app.cell
-def _(mo, month_hour_list, plt, sns):
-    sns.set(style="whitegrid", font="serif")
-    plt.figure(figsize=(12, 6))
-    sns.lineplot(
-        data=month_hour_list,
-        x="Month",
-        y="Hours",
-        linewidth=2.5,  # Adjust the line thickness
-        marker="o",  # Use a circular marker
-        markersize=10,  # Increase the size of the markers
-        color=sns.color_palette("pastel")[0],  # Use a pastel color
-    )
+def _(mo, px):
+    def plot_hours_per_month_plotly(month_hour_list):
+        """
+        Creates an interactive line chart for hours worked per month.
 
-    # Graph customization
-    plt.title("Hours per Month", fontsize=14)
-    plt.xlabel("Months", fontsize=12)
-    plt.ylabel("Hours", fontsize=12)
-    plt.xticks(rotation=45, fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
+        Args:
+            month_hour_list: Polars DataFrame containing "Month" and "Hours" columns.
+        """
+        # Convert Polars DataFrame to Pandas for Plotly
+        plot_data = month_hour_list
 
-    # Display the graph
-    mo.center(plt.gca())
+        # Create the Plotly line chart
+        fig = px.line(
+            plot_data,
+            x="Month",
+            y="Hours",
+            markers=True,  # Add circular markers
+            title="Hours per Month",
+            labels={"Month": "Months", "Hours": "Hours"},  # Axis labels
+            line_shape="linear",  # Line interpolation
+        )
+
+        # Customize the chart
+        fig.update_traces(
+            line=dict(width=2.5, color=px.colors.qualitative.Pastel[0]),  # Line color and thickness
+            marker=dict(size=10, symbol="circle", color=px.colors.qualitative.Pastel[0]),  # Marker size and color
+        )
+        fig.update_layout(
+            title_font_size=14,
+            title_font_weight="bold",
+            xaxis=dict(
+                title_font=dict(size=12),
+                tickangle=45,  # Rotate x-axis labels
+                tickfont=dict(size=12),
+            ),
+            yaxis=dict(
+                title_font=dict(size=12),
+                tickfont=dict(size=12),
+            ),
+            margin=dict(l=20, r=20, t=50, b=40),  # Adjust margins
+            plot_bgcolor="white",  # Set background color
+        )
+        fig.update_xaxes(showgrid=True, gridcolor="lightgrey")
+        fig.update_yaxes(showgrid=True, gridcolor="lightgrey")
+
+        return mo.center(mo.ui.plotly(fig))
+    return (plot_hours_per_month_plotly,)
+
+
+@app.cell
+def _(month_hour_list, plot_hours_per_month_plotly):
+    plot_hours_per_month_plotly(month_hour_list)
     return
 
 
@@ -752,7 +780,6 @@ def _(mo, px):
         - df: Polars DataFrame containing movie data.
         - column_name: Column name to be used for the plot (e.g., 'Metascore' or 'imdbRating').
         """
-        # Prepare the data
         plot_data = (
             df.select("Name", column_name)
             .drop_nulls()
@@ -760,11 +787,9 @@ def _(mo, px):
             .head(10)
         )
 
-        # Convert the data to lists
         movie_titles = plot_data["Name"].to_list()
         scores = plot_data[column_name].to_list()
 
-        # Create the Plotly bar chart
         fig = px.bar(
             x=movie_titles,
             y=scores,
@@ -772,7 +797,7 @@ def _(mo, px):
             labels={"x": "Movie", "y": column_name.capitalize()},
             title=f"Top 10 {column_name.capitalize()} Scores",
             color=scores,
-            color_discrete_sequence= px.colors.sequential.algae,
+            color_continuous_scale=px.colors.sequential.Teal,
         )
 
         fig.update_traces(
@@ -784,11 +809,10 @@ def _(mo, px):
             yaxis_title=column_name.capitalize(),
             title_font_size=16,
             title_font_weight="bold",
-            xaxis_tickangle=45,  # Rotate x-axis labels
+            xaxis_tickangle=45,  
             xaxis_tickfont=dict(size=12, family="Serif"),
             yaxis_tickfont=dict(size=12, family="Serif"),
-            margin=dict(l=10, r=10, t=50, b=40),  # Adjust margins
-            showlegend=False,
+            margin=dict(l=10, r=10, t=50, b=40),
         )
 
         return mo.center(mo.ui.plotly(fig))
@@ -888,7 +912,7 @@ def _(mo, pl, px):
             text="Score",  # Display score values on the bars
             labels={"Score": "Rating", "Movie": "Movie"},
             title=f"Your Rating vs Critic Rating ({title_suffix})",
-            color_discrete_sequence=px.colors.qualitative.Set1,  # Custom color palette
+            color_discrete_sequence=px.colors.qualitative.Pastel
         )
 
         # Customize the chart
@@ -906,11 +930,11 @@ def _(mo, pl, px):
                 title="Rating Type",
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1,
                 xanchor="center",
                 x=0.5,
             ),
-            margin=dict(l=10, r=10, t=50, b=40),  # Adjust margins
+            margin=dict(l=10, r=10, t=50, b=40),
         )
 
         return mo.center(mo.ui.plotly(fig))
