@@ -13,7 +13,7 @@ def _():
     import json
     import polars as pl
     import seaborn as sns
-    import matplotlib.pyplot as plt
+    import plotly.express as px
     from dotenv import load_dotenv
     from collections import Counter
     from datetime import datetime
@@ -414,8 +414,8 @@ def _(df_full, mo, number_unique_directors, pl, total_movies_watched):
 
 
 @app.cell
-def _(df_full, mo, pl, plt, sns):
-    # Raggruppa i dati e aggrega
+def _(df_full, mo, pl):
+
     directors_data = (
         df_full.group_by("Director")
         .agg(pl.col("Name").count().alias("count"))
@@ -423,33 +423,33 @@ def _(df_full, mo, pl, plt, sns):
         .head(13)
     )
 
-    # Converte i dati in formato lista per Seaborn
     directors = directors_data["Director"].to_list()
     counts = directors_data["count"].to_list()
 
-    # Configura Seaborn e crea il grafico
-    sns.set(style="whitegrid", font="serif")
-    plt.figure(figsize=(10, 6))
-    sns.barplot(
-        x=counts,  # Numero di film (asse x)
-        y=directors,  # Direttori (asse y)
-        hue=directors,
-        palette="pastel",
+    fig = px.bar(
+        x=counts,  
+        y=directors,  
+        labels={"x": "Number of Movies", "y": "Director"},
+        title="Number of Movies by Director",
+        color=directors, 
+        color_discrete_sequence=px.colors.qualitative.Pastel,
     )
 
     # Personalizza il grafico
-    plt.title("Number of Movies by Director", fontsize=16)
-    plt.xlabel("Number of Movies", fontsize=12)
-    plt.ylabel("", fontsize=12)
+    fig.update_layout(
+        xaxis_title="Number of Movies",
+        yaxis_title="",
+        title_font_size=16,
+        title_font_weight="bold",
+        xaxis_tickfont_size=12,
+        yaxis_tickfont_size=12,
+        margin=dict(l=0, r=0, t=40, b=40),
+        yaxis=dict(autorange="reversed"),
+        showlegend=False,
+    )
 
-    # Configura i ticks sull'asse x
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
-
-    # Mostra il grafico
-    mo.center(plt.gca())
-    return counts, directors, directors_data
+    mo.center(mo.ui.plotly(fig))
+    return counts, directors, directors_data, fig, px
 
 
 @app.cell
@@ -743,18 +743,15 @@ def _(mo):
 
 
 @app.cell
-def _(mo, plt, sns):
+def _(mo, px):
     def plot_top_scores(df, column_name):
         """
-        Plots a barplot for the top 10 movies based on a given column (e.g., 'Metascore' or 'imdbRating').
+        Creates an interactive bar chart for the top 10 movies based on a given column (e.g., 'Metascore' or 'imdbRating').
 
         Args:
-        - df: DataFrame containing movie data.
+        - df: Polars DataFrame containing movie data.
         - column_name: Column name to be used for the plot (e.g., 'Metascore' or 'imdbRating').
         """
-        # Set the style
-        sns.set(style="whitegrid", font="serif")
-
         # Prepare the data
         plot_data = (
             df.select("Name", column_name)
@@ -763,39 +760,38 @@ def _(mo, plt, sns):
             .head(10)
         )
 
-        # Convert the data to lists for Seaborn
+        # Convert the data to lists
         movie_titles = plot_data["Name"].to_list()
         scores = plot_data[column_name].to_list()
 
-        # Create the barplot
-        plt.figure(figsize=(12, 6))
-        barplot = sns.barplot(
+        # Create the Plotly bar chart
+        fig = px.bar(
             x=movie_titles,
             y=scores,
-            hue=scores,
-            palette="pastel",
-            legend=False,
+            text=scores,
+            labels={"x": "Movie", "y": column_name.capitalize()},
+            title=f"Top 10 {column_name.capitalize()} Scores",
+            color=scores,
+            color_discrete_sequence= px.colors.sequential.algae,
         )
 
-        # Add values on top of the bars
-        for bar, score in zip(barplot.patches, scores):
-            barplot.text(
-                bar.get_x() + bar.get_width() / 2,  # Center text on the bar
-                bar.get_height() + .1,              # Place text slightly above the bar
-                f"{score}",                         # Text content (score)
-                ha="center", fontsize=10
-            )
+        fig.update_traces(
+            texttemplate="%{text}",  # Format text as the score
+            textposition="outside",  # Display text above the bars
+        )
+        fig.update_layout(
+            xaxis_title="Movie",
+            yaxis_title=column_name.capitalize(),
+            title_font_size=16,
+            title_font_weight="bold",
+            xaxis_tickangle=45,  # Rotate x-axis labels
+            xaxis_tickfont=dict(size=12, family="Serif"),
+            yaxis_tickfont=dict(size=12, family="Serif"),
+            margin=dict(l=10, r=10, t=50, b=40),  # Adjust margins
+            showlegend=False,
+        )
 
-        # Customize the plot
-        plt.title(f"Top {column_name.capitalize()}", fontsize=16, weight="bold")
-        plt.xlabel("Movie", fontsize=14)
-        plt.ylabel(column_name.capitalize(), fontsize=14)
-        plt.xticks(rotation=80, fontsize=10, weight="bold")
-        plt.yticks(fontsize=12)
-        plt.tight_layout()
-        plt.tick_params(labelsize=12)
-
-        return mo.center(plt.gca())
+        return mo.center(mo.ui.plotly(fig))
     return (plot_top_scores,)
 
 
@@ -846,10 +842,10 @@ def _(mo):
 
 
 @app.cell
-def _(mo, plt, sns):
+def _(mo, pl, px):
     def plot_rating_differences(df, rating_diff_col, normalized_col, title_suffix=""):
         """
-        Plots a bar plot showing your ratings vs critic ratings for the top 10 movies based on a rating difference column.
+        Creates an interactive bar chart comparing your ratings vs critic ratings for the top 10 movies based on a rating difference column.
 
         Args:
             df: The Polars DataFrame containing the data.
@@ -857,9 +853,7 @@ def _(mo, plt, sns):
             normalized_col: The column representing the normalized critic rating.
             title_suffix: A string to append to the plot title (e.g., "Metascore" or "IMDB").
         """
-        # Set the style
-        sns.set(style="whitegrid", font="serif")
-
+        # Prepare the data
         plot_data = (
             df.select(["Name", rating_diff_col, "Rating", normalized_col])
             .drop_nulls()
@@ -873,35 +867,53 @@ def _(mo, plt, sns):
         normalized_ratings = plot_data[normalized_col].to_list()
 
         # Prepare data for side-by-side plotting
-        categories = ["Rating"] * len(ratings) + ["Critic Rating"] * len(normalized_ratings)
+        categories = ["Your Rating"] * len(ratings) + ["Critic Rating"] * len(normalized_ratings)
         scores = ratings + normalized_ratings
         movie_labels = names * 2  # Repeat names for both groups
 
-        # Create the barplot
-        plt.figure(figsize=(12, 6))
-        barplot_difference = sns.barplot(
-            x=movie_labels,
-            y=scores,
-            hue=categories,
-            palette="coolwarm",
+        # Create a DataFrame for Plotly
+        plotly_data = pl.DataFrame({
+            "Movie": movie_labels,
+            "Rating Type": categories,
+            "Score": scores,
+        })
+
+        # Create the Plotly bar chart
+        fig = px.bar(
+            plotly_data,
+            x="Movie",
+            y="Score",
+            color="Rating Type",
+            barmode="group",  # Group bars side by side
+            text="Score",  # Display score values on the bars
+            labels={"Score": "Rating", "Movie": "Movie"},
+            title=f"Your Rating vs Critic Rating ({title_suffix})",
+            color_discrete_sequence=px.colors.qualitative.Set1,  # Custom color palette
         )
 
-        # Move the legend
-        sns.move_legend(barplot_difference, "lower right")
+        # Customize the chart
+        fig.update_traces(
+            texttemplate="%{text:.1f}",  # Format text values
+            textposition="outside",  # Place text outside the bars
+        )
+        fig.update_layout(
+            title_font_size=16,
+            title_font_weight="bold",
+            xaxis_tickangle=45,  # Rotate x-axis labels
+            xaxis_tickfont=dict(size=12, family="Serif"),
+            yaxis_tickfont=dict(size=12, family="Serif"),
+            legend=dict(
+                title="Rating Type",
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+            ),
+            margin=dict(l=10, r=10, t=50, b=40),  # Adjust margins
+        )
 
-        # Customize the plot
-        plt.title(f"Your Rating vs Critic Rating ({title_suffix})", fontsize=16)
-        plt.xlabel("Movie", fontsize=14)
-        plt.ylabel("Ratings", fontsize=14)
-        plt.xticks(fontsize=12, rotation=80, weight="bold")
-        plt.yticks(fontsize=12)
-        plt.tick_params(labelsize=12)
-
-        # Display the plot
-        plt.tight_layout()
-
-        # Display the plot
-        return mo.center(plt.gca())
+        return mo.center(mo.ui.plotly(fig))
     return (plot_rating_differences,)
 
 
