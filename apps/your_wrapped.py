@@ -13,25 +13,19 @@ def _():
     import json
     import polars as pl
     import seaborn as sns
-    import matplotlib.pyplot as plt
+    import plotly.express as px
     from dotenv import load_dotenv
     from collections import Counter
     from datetime import datetime
-
-
-    load_dotenv()
-
-    is_local = True
     return (
         Counter,
         datetime,
         io,
-        is_local,
         json,
         load_dotenv,
         os,
         pl,
-        plt,
+        px,
         requests,
         sns,
         zipfile,
@@ -39,16 +33,10 @@ def _():
 
 
 @app.cell
-def _(mo):
-    file = mo.ui.file(kind="button")
-    file
-    return (file,)
-
-
-@app.cell
 def _(io, pl, zipfile):
     def process_zip_and_load_csv(file_contents):
         with zipfile.ZipFile(io.BytesIO(file_contents)) as zf:
+            print(zf.namelist())
             if "diary.csv" in zf.namelist():
                 with zf.open("diary.csv") as csv_file:
                     df = pl.read_csv(csv_file).filter(
@@ -59,6 +47,120 @@ def _(io, pl, zipfile):
             else:
                 raise FileNotFoundError("'diary.csv' not found")
     return (process_zip_and_load_csv,)
+
+
+@app.cell
+def _(requests):
+    def get_movie_data(title, year, api_key):
+        parsed_title = title.replace(" ", "+")
+
+        url = f"http://www.omdbapi.com/?&t={parsed_title}&y={year}&apikey={api_key}"
+
+        response = requests.get(url)
+        data = response.json()
+
+        if response.status_code == 200 and data.get("Response") == "True":
+            return data
+        else:
+            print(f"Errore: {data.get('Error')}")
+            return None
+    return (get_movie_data,)
+
+
+@app.cell
+def _(get_movie_data):
+    def get_metatadata(diary_df, api_key):
+        metadata = {}
+        for t, y in diary_df[['Name', 'Year']].rows():
+            print(f"Getting data for {t} ({y})")
+            metadata[f"{t}_{y}"] = get_movie_data(t, y, api_key)
+        return metadata
+    return (get_metatadata,)
+
+
+@app.cell
+def _(mo):
+    mo.center(
+        mo.md("""# **Letterboxd Movie Analysis**""")
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.center(
+        mo.md("""## Uncovering Your Watching Habits""")
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        """
+            This application processes movie diary data exported from **Letterboxd** and enriches it with detailed metadata to analyze and uncover interesting insights. 
+
+            [Letterboxd](https://letterboxd.com/) is a social platform designed for movie enthusiasts. It allows users to log, rate, and review the movies they watch while keeping track of their viewing habits.
+
+            The exported data serves as a starting point, containing a basic list of movies watched, and is transformed into a rich dataset with comprehensive information about genres, runtime, directors, writers, and more."""
+    ).style({"text-align": "center"})
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        f"""
+        {mo.center(mo.image(         
+            src="https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/imgs/letterboxd.png",
+            alt="Letterboxd logo",
+            width=400,
+            caption="By Mameli with Letterboxd",
+        ))}
+        ---
+        """
+    ).style({"text-align": "center"})
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        f"""
+        Upload your export data from Letterboxd. You need to have your diary filled. **2024** data will be extracted
+        """
+    ).style({"text-align": "center"})
+    return
+
+
+@app.cell
+def _(mo):
+    file = mo.ui.file(kind="button")
+    return (file,)
+
+
+@app.cell
+def _(file, mo):
+    mo.center(file)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""This application is using [omdbapi](https://www.omdbapi.com/) API to get the metadata needed for the analysis. You can use my free API_KEY but it's possibile to retrive only 1000 movies per day. So you can type this key 2d93f987 below or generate yours [here](https://www.omdbapi.com/apikey.aspx). Type the key and press enter""").style({"text-align": "center"})
+    return
+
+
+@app.cell
+def _(mo):
+    API_KEY = mo.ui.text(placeholder="2d93f987", label="API_KEY")
+    return (API_KEY,)
+
+
+@app.cell
+def _(API_KEY, mo):
+    mo.center(API_KEY)
+    return
 
 
 @app.cell
@@ -82,108 +184,14 @@ def _(df, pl):
 
 
 @app.cell
-def _(is_local):
-    if is_local:
-        CACHE_FILE = "/Users/filippomameli/Projects/letterboxd_wrapped/movie_cache.json"
-    else:
-        CACHE_FILE = "https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/movie_cache.json"
-    return (CACHE_FILE,)
-
-
-@app.cell
-def _(CACHE_FILE, is_local, json, os, requests):
-    def load_cache():
-        if is_local:
-            if os.path.exists(CACHE_FILE):
-                with open(CACHE_FILE, 'r') as f:
-                    return json.load(f)
-        else:
-            return requests.get(CACHE_FILE).json()
-        return {}
-
-    def save_cache(cache):
-        with open(CACHE_FILE, 'w') as f:
-            json.dump(cache, f, indent=4)
-    return load_cache, save_cache
-
-
-@app.cell
-def _(load_cache, requests, save_cache):
-    def get_movie_data(title, year, api_key):
-        parsed_title = title.replace(" ", "+")
-
-        cache = load_cache()
-        key = f"{title}_{year}"
-
-        if key in cache:
-            print(f"Cache hit per '{title}' ({year})")
-            return cache[key]
-
-        url = f"http://www.omdbapi.com/?&t={parsed_title}&y={year}&apikey={api_key}"
-
-        response = requests.get(url)
-        data = response.json()
-
-        if response.status_code == 200 and data.get("Response") == "True":
-            cache[key] = data
-            save_cache(cache)
-            return data
-        else:
-            print(f"Errore: {data.get('Error')}")
-            return None
-    return (get_movie_data,)
-
-
-@app.cell
-def _(os):
-    API_KEY = os.getenv("API_KEY")
-
-    # get_movie_data("Submarine", 2010, API_KEY)
-    return (API_KEY,)
-
-
-@app.cell
-def _(get_movie_data):
-    def get_metatadata(diary_df, api_key):
-        for t, y in diary_df[['Name', 'Year']].rows():
-            print(f"Getting data for {t} ({y})")
-            get_movie_data(t, y, api_key)
-
-    # get_metatadata(df_fmt, API_KEY)
-    return (get_metatadata,)
-
-
-@app.cell
 def _(mo):
-    mo.center(mo.md("# **Letterbox Diary Insights**"))
+    mo.md(r"""## Data overview""").style({"text-align": "center"})
     return
 
 
 @app.cell
-def _(mo):
-    mo.md(
-        """
-            This application processes movie diary data exported from **Letterboxd** and enriches it with detailed metadata to analyze and uncover interesting insights. 
-
-            The exported data serves as a starting point, containing a basic list of movies watched, and is transformed into a rich dataset with comprehensive information about genres, runtime, directors, writers, and more."""
-    ).style({"text-align": "center"})
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(
-        f"""
-        {mo.center(mo.image(         
-            src="https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/imgs/letterboxd.png",
-            alt="Letterboxd logo",
-            width=500,
-            caption="By Mameli with Letterboxd",
-        ))}
-
-        ---
-        """
-    ).style({"text-align": "center"})
+def _(df_fmt):
+    df_fmt
     return
 
 
@@ -228,7 +236,15 @@ def _(df_full, mo):
     mo.center(
         mo.accordion(
             {
-                "Dataframe example": df_full,
+                "Dataframe example": df_full.select(
+                    "title_year",
+                    "Genre",
+                    "Runtime_normalized",
+                    "Director",
+                    "Actors",
+                    "Language",
+                    "Metascore",
+                )
             }
         )
     )
@@ -236,7 +252,7 @@ def _(df_full, mo):
 
 
 @app.cell
-def _(df_fmt, load_cache, pl):
+def _(API_KEY, df_fmt, get_metatadata, pl):
     def extract_metadata(cache, title_year, param):
         temp_metadata = []
         for ty in title_year:
@@ -248,7 +264,7 @@ def _(df_fmt, load_cache, pl):
         return pl.Series("metadata", temp_metadata)
 
 
-    cache = load_cache()
+    cache = get_metatadata(df_fmt, API_KEY.value)
     df_full = df_fmt.with_columns(
         pl.struct(["title_year"])
         .map_batches(
@@ -496,7 +512,7 @@ def _(mo, top_3_longest_movies_stack, total_runtime):
         This analysis focuses on the total runtime of movies, identifying the longest movies watched, and examining monthly trends based on runtime.
 
         1. **Total Runtime -> {total_runtime}h**
-           - Calculates the total time spent watching movies in hours by summing up the normalized runtime of all entries. This gives a clear picture of the overall time investment in movie-watching.
+           - The Time spent watching movies in hours by summing up the normalized runtime of all entries. This gives a clear picture of the overall time investment in movie-watching.
 
         2. **Longest Movies**  
             Identifies the longest movies watched by sorting the dataset by runtime in descending order. This highlights which movies required the most time to watch.
@@ -770,7 +786,7 @@ def _(mo, top_user_rating):
 @app.cell
 def _(mo):
     mo.center(
-        mo.md("""- **Top by Metascore**: Movies sorted by critical scores.""")
+        mo.md("""- **Top by Critics**: Movies sorted by critical scores (Metacritic and IMDB).""")
     )
     return
 
