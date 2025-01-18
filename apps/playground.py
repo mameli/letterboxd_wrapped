@@ -12,7 +12,6 @@ def _():
     import io
     import json
     import polars as pl
-    import seaborn as sns
     import plotly.express as px
     from dotenv import load_dotenv
     from collections import Counter
