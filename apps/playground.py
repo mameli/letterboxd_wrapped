@@ -150,7 +150,17 @@ def _(get_movie_data):
 
 @app.cell
 def _(mo):
-    mo.center(mo.md("# **Letterbox Diary Insights**"))
+    mo.center(
+        mo.md("""# **Letterboxd Movie Analysis**""")
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.center(
+        mo.md("""## Uncovering My Watching Habits""")
+    )
     return
 
 
@@ -159,6 +169,8 @@ def _(mo):
     mo.md(
         """
             This application processes movie diary data exported from **Letterboxd** and enriches it with detailed metadata to analyze and uncover interesting insights. 
+
+            [Letterboxd](https://letterboxd.com/) is a social platform designed for movie enthusiasts. It allows users to log, rate, and review the movies they watch while keeping track of their viewing habits.
 
             The exported data serves as a starting point, containing a basic list of movies watched, and is transformed into a rich dataset with comprehensive information about genres, runtime, directors, writers, and more."""
     ).style({"text-align": "center"})
@@ -172,10 +184,9 @@ def _(mo):
         {mo.center(mo.image(         
             src="https://raw.githubusercontent.com/mameli/letterboxd_wrapped/refs/heads/main/imgs/letterboxd.png",
             alt="Letterboxd logo",
-            width=500,
+            width=400,
             caption="By Mameli with Letterboxd",
         ))}
-
         ---
         """
     ).style({"text-align": "center"})
@@ -223,7 +234,15 @@ def _(df_full, mo):
     mo.center(
         mo.accordion(
             {
-                "Dataframe example": df_full,
+                "Dataframe example": df_full.select(
+                    "title_year",
+                    "Genre",
+                    "Runtime_normalized",
+                    "Director",
+                    "Actors",
+                    "Language",
+                    "Metascore",
+                )
             }
         )
     )
@@ -491,7 +510,7 @@ def _(mo, top_3_longest_movies_stack, total_runtime):
         This analysis focuses on the total runtime of movies, identifying the longest movies watched, and examining monthly trends based on runtime.
 
         1. **Total Runtime -> {total_runtime}h**
-           - Calculates the total time spent watching movies in hours by summing up the normalized runtime of all entries. This gives a clear picture of the overall time investment in movie-watching.
+           - The Time spent watching movies in hours by summing up the normalized runtime of all entries. This gives a clear picture of the overall time investment in movie-watching.
 
         2. **Longest Movies**  
             Identifies the longest movies watched by sorting the dataset by runtime in descending order. This highlights which movies required the most time to watch.
@@ -765,7 +784,7 @@ def _(mo, top_user_rating):
 @app.cell
 def _(mo):
     mo.center(
-        mo.md("""- **Top by Metascore**: Movies sorted by critical scores.""")
+        mo.md("""- **Top by Critics**: Movies sorted by critical scores (Metacritic and IMDB).""")
     )
     return
 

@@ -51,12 +51,13 @@ def _(io, pl, zipfile):
         with zipfile.ZipFile(io.BytesIO(file_contents)) as zf:
             if "diary.csv" in zf.namelist():
                 with zf.open("diary.csv") as csv_file:
-                    df = pl.read_csv(csv_file).filter((pl.col("Watched Date") > pl.lit("2024-01-01")) & (pl.col("Watched Date") < pl.lit("2025-01-01")))
+                    df = pl.read_csv(csv_file).filter(
+                        (pl.col("Watched Date") > pl.lit("2024-01-01"))
+                        & (pl.col("Watched Date") < pl.lit("2025-01-01"))
+                    )
                     return df
             else:
-                raise FileNotFoundError(
-                    "'diary.csv' not found"
-                )
+                raise FileNotFoundError("'diary.csv' not found")
     return (process_zip_and_load_csv,)
 
 
@@ -418,44 +419,41 @@ def _(df_full, mo, number_unique_directors, pl, total_movies_watched):
 
 
 @app.cell
-def _(df_full, mo, pl, plt, sns):
-    sns.set(style="whitegrid", font="serif")
-
-    plt.figure(figsize=(10, 6))
-    sns.barplot(
-        data=df_full.group_by("Director")
-        .agg(pl.col("Name").count().alias("count"))
-        .sort("count", descending=True)
-        .head(12)
-        .to_pandas(),
-        y="Director",  # Horizontal orientation: Directors on the y-axis
-        x="count",  # Movie counts on the x-axis
-        hue="Director",
-        palette="pastel",  # Reverse Blues color palette
-    )
-
-
-    # Customize the plot
-    plt.title("Number of Movies by Director", fontsize=16)
-    plt.xlabel("Number of Movies", fontsize=12)
-    plt.ylabel(" ", fontsize=12)
-
-    # Set integer ticks for the x-axis
-    max_count = (
+def _(df_full, mo, pl, px):
+    directors_data = (
         df_full.group_by("Director")
         .agg(pl.col("Name").count().alias("count"))
-        .to_pandas()["count"]
-        .max()
-    )
-    plt.xticks(
-        ticks=range(0, int(max_count) + 1), fontsize=12
+        .sort("count", descending=True)
+        .head(13)
     )
 
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
+    directors = directors_data["Director"].to_list()
+    counts = directors_data["count"].to_list()
 
-    mo.center(plt.gca())
-    return (max_count,)
+    fig = px.bar(
+        x=counts,  
+        y=directors,  
+        labels={"x": "Number of Movies", "y": "Director"},
+        title="Number of Movies by Director",
+        color=directors, 
+        color_discrete_sequence=px.colors.qualitative.Pastel,
+    )
+
+    # Personalizza il grafico
+    fig.update_layout(
+        xaxis_title="Number of Movies",
+        yaxis_title="",
+        title_font_size=16,
+        title_font_weight="bold",
+        xaxis_tickfont_size=12,
+        yaxis_tickfont_size=12,
+        margin=dict(l=0, r=0, t=40, b=40),
+        yaxis=dict(autorange="reversed"),
+        showlegend=False,
+    )
+
+    mo.center(mo.ui.plotly(fig))
+    return counts, directors, directors_data, fig
 
 
 @app.cell
@@ -576,29 +574,58 @@ def _(df_full, pl):
 
 
 @app.cell
-def _(mo, month_hour_list, plt, sns):
-    sns.set(style="whitegrid", font="serif")
-    plt.figure(figsize=(12, 6))
-    sns.lineplot(
-        data=month_hour_list,
-        x="Month",
-        y="Hours",
-        linewidth=2.5,  # Adjust the line thickness
-        marker="o",  # Use a circular marker
-        markersize=10,  # Increase the size of the markers
-        color=sns.color_palette("pastel")[0],  # Use a pastel color
-    )
+def _(mo, px):
+    def plot_hours_per_month_plotly(month_hour_list):
+        """
+        Creates an interactive line chart for hours worked per month.
 
-    # Graph customization
-    plt.title("Hours per Month", fontsize=14)
-    plt.xlabel("Months", fontsize=12)
-    plt.ylabel("Hours", fontsize=12)
-    plt.xticks(rotation=45, fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
+        Args:
+            month_hour_list: Polars DataFrame containing "Month" and "Hours" columns.
+        """
+        # Convert Polars DataFrame to Pandas for Plotly
+        plot_data = month_hour_list
 
-    # Display the graph
-    mo.center(plt.gca())
+        # Create the Plotly line chart
+        fig = px.line(
+            plot_data,
+            x="Month",
+            y="Hours",
+            markers=True,  # Add circular markers
+            title="Hours per Month",
+            labels={"Month": "Months", "Hours": "Hours"},  # Axis labels
+            line_shape="linear",  # Line interpolation
+        )
+
+        # Customize the chart
+        fig.update_traces(
+            line=dict(width=2.5, color=px.colors.qualitative.Pastel[0]),  # Line color and thickness
+            marker=dict(size=10, symbol="circle", color=px.colors.qualitative.Pastel[0]),  # Marker size and color
+        )
+        fig.update_layout(
+            title_font_size=14,
+            title_font_weight="bold",
+            xaxis=dict(
+                title_font=dict(size=12),
+                tickangle=45,  # Rotate x-axis labels
+                tickfont=dict(size=12),
+            ),
+            yaxis=dict(
+                title_font=dict(size=12),
+                tickfont=dict(size=12),
+            ),
+            margin=dict(l=20, r=20, t=50, b=40),  # Adjust margins
+            plot_bgcolor="white",  # Set background color
+        )
+        fig.update_xaxes(showgrid=True, gridcolor="lightgrey")
+        fig.update_yaxes(showgrid=True, gridcolor="lightgrey")
+
+        return mo.center(mo.ui.plotly(fig))
+    return (plot_hours_per_month_plotly,)
+
+
+@app.cell
+def _(month_hour_list, plot_hours_per_month_plotly):
+    plot_hours_per_month_plotly(month_hour_list)
     return
 
 
@@ -749,57 +776,51 @@ def _(mo):
 
 
 @app.cell
-def _(mo, plt, sns):
+def _(mo, px):
     def plot_top_scores(df, column_name):
         """
-        Plots a barplot for the top 10 movies based on a given column (e.g., 'Metascore' or 'imdbRating').
+        Creates an interactive bar chart for the top 10 movies based on a given column (e.g., 'Metascore' or 'imdbRating').
 
         Args:
-        - df: DataFrame containing movie data.
+        - df: Polars DataFrame containing movie data.
         - column_name: Column name to be used for the plot (e.g., 'Metascore' or 'imdbRating').
         """
-        # Set the style
-        sns.set(style="whitegrid", font="serif")
-
-        # Create the barplot
-        plt.figure(figsize=(12, 6))
         plot_data = (
-            df
-            .select("Name", column_name)
+            df.select("Name", column_name)
             .drop_nulls()
             .sort(column_name, descending=True)
             .head(10)
-            .to_pandas()
         )
 
-        barplot = sns.barplot(
-            data=plot_data,
-            x="Name",
-            y=column_name,
-            hue=column_name,
-            palette="pastel",
-            legend=False,
+        movie_titles = plot_data["Name"].to_list()
+        scores = plot_data[column_name].to_list()
+
+        fig = px.bar(
+            x=movie_titles,
+            y=scores,
+            text=scores,
+            labels={"x": "Movie", "y": column_name.capitalize()},
+            title=f"Top 10 {column_name.capitalize()} Scores",
+            color=scores,
+            color_continuous_scale=px.colors.sequential.Teal,
         )
 
-        # Add values on top of the bars
-        for bar, score in zip(barplot.patches, plot_data[column_name].iloc[::-1]):
-            barplot.text(
-                bar.get_x() + bar.get_width() / 2,  # Center text on the bar
-                bar.get_height() + .1,              # Place text slightly above the bar
-                f"{score}",                   # Text content (integer score)
-                ha="center", fontsize=10
-            )
+        fig.update_traces(
+            texttemplate="%{text}",  # Format text as the score
+            textposition="outside",  # Display text above the bars
+        )
+        fig.update_layout(
+            xaxis_title="Movie",
+            yaxis_title=column_name.capitalize(),
+            title_font_size=16,
+            title_font_weight="bold",
+            xaxis_tickangle=45,  
+            xaxis_tickfont=dict(size=12, family="Serif"),
+            yaxis_tickfont=dict(size=12, family="Serif"),
+            margin=dict(l=10, r=10, t=50, b=40),
+        )
 
-        # Customize the plot
-        plt.title(f"Top {column_name.capitalize()}", fontsize=16, weight="bold")
-        plt.xlabel("Movie", fontsize=14)
-        plt.ylabel(column_name.capitalize(), fontsize=14)
-        plt.xticks(rotation=80, fontsize=10, weight="bold")
-        plt.yticks(fontsize=12)
-        plt.tight_layout()
-        plt.tick_params(labelsize=12)
-
-        return mo.center(plt.gca())
+        return mo.center(mo.ui.plotly(fig))
     return (plot_top_scores,)
 
 
@@ -850,10 +871,10 @@ def _(mo):
 
 
 @app.cell
-def _(mo, plt, sns):
+def _(mo, pl, px):
     def plot_rating_differences(df, rating_diff_col, normalized_col, title_suffix=""):
         """
-        Plots a bar plot showing your ratings vs critic ratings for the top 10 movies based on a rating difference column.
+        Creates an interactive bar chart comparing your ratings vs critic ratings for the top 10 movies based on a rating difference column.
 
         Args:
             df: The Polars DataFrame containing the data.
@@ -861,49 +882,67 @@ def _(mo, plt, sns):
             normalized_col: The column representing the normalized critic rating.
             title_suffix: A string to append to the plot title (e.g., "Metascore" or "IMDB").
         """
-        # Set the style
-        sns.set(style="whitegrid", font="serif")
-
         # Prepare the data
         plot_data = (
-            df.select("Name", rating_diff_col, "Rating", normalized_col)
+            df.select(["Name", rating_diff_col, "Rating", normalized_col])
             .drop_nulls()
             .sort(rating_diff_col, descending=True)
             .head(10)
-            .to_pandas()
         )
 
-        # Melt the data for side-by-side bar plotting
-        plot_data_melted = plot_data.melt(
-            id_vars=["Name"],
-            value_vars=["Rating", normalized_col],
-            var_name="Rating Type",
-            value_name="Score",
-        )
+        # Extract data into lists for plotting
+        names = plot_data["Name"].to_list()
+        ratings = plot_data["Rating"].to_list()
+        normalized_ratings = plot_data[normalized_col].to_list()
 
-        # Create the barplot
-        plt.figure(figsize=(12, 6))
-        barplot_difference = sns.barplot(
-            data=plot_data_melted,
-            x="Name",
+        # Prepare data for side-by-side plotting
+        categories = ["Your Rating"] * len(ratings) + ["Critic Rating"] * len(normalized_ratings)
+        scores = ratings + normalized_ratings
+        movie_labels = names * 2  # Repeat names for both groups
+
+        # Create a DataFrame for Plotly
+        plotly_data = pl.DataFrame({
+            "Movie": movie_labels,
+            "Rating Type": categories,
+            "Score": scores,
+        })
+
+        # Create the Plotly bar chart
+        fig = px.bar(
+            plotly_data,
+            x="Movie",
             y="Score",
-            hue="Rating Type",
-            palette="coolwarm",
+            color="Rating Type",
+            barmode="group",  # Group bars side by side
+            text="Score",  # Display score values on the bars
+            labels={"Score": "Rating", "Movie": "Movie"},
+            title=f"Your Rating vs Critic Rating ({title_suffix})",
+            color_discrete_sequence=px.colors.qualitative.Pastel
         )
 
-        # Move the legend
-        sns.move_legend(barplot_difference, "lower right")
+        # Customize the chart
+        fig.update_traces(
+            texttemplate="%{text:.1f}",  # Format text values
+            textposition="outside",  # Place text outside the bars
+        )
+        fig.update_layout(
+            title_font_size=16,
+            title_font_weight="bold",
+            xaxis_tickangle=45,  # Rotate x-axis labels
+            xaxis_tickfont=dict(size=12, family="Serif"),
+            yaxis_tickfont=dict(size=12, family="Serif"),
+            legend=dict(
+                title="Rating Type",
+                orientation="h",
+                yanchor="bottom",
+                y=1,
+                xanchor="center",
+                x=0.5,
+            ),
+            margin=dict(l=10, r=10, t=50, b=40),
+        )
 
-        # Customize the plot
-        plt.title(f"Your Rating vs Critic Rating ({title_suffix})", fontsize=16)
-        plt.xlabel("Movie", fontsize=14)
-        plt.ylabel("Ratings", fontsize=14)
-        plt.xticks(fontsize=12, rotation=80, weight="bold")
-        plt.yticks(fontsize=12)
-        plt.tick_params(labelsize=12)
-
-        # Display the plot
-        return mo.center(plt.gca())
+        return mo.center(mo.ui.plotly(fig))
     return (plot_rating_differences,)
 
 
