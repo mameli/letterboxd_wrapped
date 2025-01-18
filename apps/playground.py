@@ -46,7 +46,6 @@ def _():
         pl,
         px,
         requests,
-        sns,
         zip_file_path,
         zip_ref,
         zipfile,
@@ -463,9 +462,10 @@ def _(df_full, mo, pl, px):
         margin=dict(l=0, r=0, t=40, b=40),
         yaxis=dict(autorange="reversed"),
         showlegend=False,
+
     )
 
-    mo.center(mo.ui.plotly(fig))
+    mo.center(mo.ui.plotly(fig)).style({"overflow": "auto", "width": "100%"})
     return counts, directors, directors_data, fig
 
 
@@ -632,7 +632,7 @@ def _(mo, px):
         fig.update_xaxes(showgrid=True, gridcolor="lightgrey")
         fig.update_yaxes(showgrid=True, gridcolor="lightgrey")
 
-        return mo.center(mo.ui.plotly(fig))
+        return mo.center(mo.ui.plotly(fig)).style({"overflow": "auto", "width": "100%"})
     return (plot_hours_per_month_plotly,)
 
 
@@ -833,7 +833,7 @@ def _(mo, px):
             margin=dict(l=10, r=10, t=50, b=40),
         )
 
-        return mo.center(mo.ui.plotly(fig))
+        return mo.center(mo.ui.plotly(fig)).style({"overflow": "auto", "width": "100%"})
     return (plot_top_scores,)
 
 
@@ -955,7 +955,7 @@ def _(mo, pl, px):
             margin=dict(l=10, r=10, t=50, b=40),
         )
 
-        return mo.center(mo.ui.plotly(fig))
+        return mo.center(mo.ui.plotly(fig)).style({"overflow": "auto", "width": "100%"})
     return (plot_rating_differences,)
 
 

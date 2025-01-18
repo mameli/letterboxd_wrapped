@@ -26,7 +26,6 @@ def _():
         pl,
         px,
         requests,
-        sns,
         zipfile,
     )
 
@@ -53,7 +52,7 @@ def _(requests):
     def get_movie_data(title, year, api_key):
         parsed_title = title.replace(" ", "+")
 
-        url = f"http://www.omdbapi.com/?&t={parsed_title}&y={year}&apikey={api_key}"
+        url = f"https://www.omdbapi.com/?&t={parsed_title}&y={year}&apikey={api_key}"
 
         response = requests.get(url)
         data = response.json()
