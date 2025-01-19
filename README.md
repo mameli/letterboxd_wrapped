@@ -1,6 +1,6 @@
 # Letterboxd Wrapped Analysis
 
-![](imgs/letterboxd.png)
+![logo](imgs/letterboxd.png)
 Why pay $20 for a personalized Letterboxd Wrapped when you can leverage your skills and spend 20 hours creating a similar analysis yourself? While some might argue it's a waste of time (and they're right), the joy of discovery often outweighs convenience.
 
 This repository contains a proof of concept (POC) for recreating Letterboxd Wrapped using tools available to any tech-savvy user.
@@ -59,6 +59,13 @@ The final interactive app can be found here:
    ```bash
    uv run marimo edit apps/wrapped.py 
    ```
+
+## Screenshots
+
+![top](imgs/screen_1.png)
+![months](imgs/screen_2.png)
+![critics](imgs/screen_3.png)
+
 # marimo WebAssembly + GitHub Pages Template
 
 This template repository demonstrates how to export [marimo](https://marimo.io) notebooks to WebAssembly and deploy them to GitHub Pages.
