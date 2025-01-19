@@ -23,7 +23,7 @@ With Marimo, the analysis notebook transforms into a fully interactive app, allo
 ### Result
 
 The final interactive app can be found here:  
-👉 [Letterboxd Wrapped App](https://mameli.github.io/letterboxd_wrapped/apps/playground.html)
+👉 [Letterboxd Wrapped App](https://mameli.github.io/letterboxd_wrapped/)
 
 ## Pros and Cons of Using Marimo
 
